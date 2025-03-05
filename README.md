@@ -26,12 +26,12 @@ python3 main.py
 ## Docker & docker-compose
 
 ```
-docker run docker pull ghcr.io/khanton/tika-proxy:latest
+docker run docker pull ghcr.io/quantori/tika-pipes:latest
 ```
 
 ```(yaml)
 tika-proxy:
-  image: ghcr.io/khanton/tika-proxy:latest
+  image: ghcr.io/quantori/tika-pipes:latest
   environment:
     - TIKA_CHUNK=120
     - TIKA_URL=http://tika:9998
