@@ -1,0 +1,42 @@
+name: Build and Push Docker Image
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract repository name
+        run: echo "REPO_NAME=$(echo $GITHUB_REPOSITORY | awk -F '/' '{print $2}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: Set up Docker tags
+        run: echo "COMMIT_TAG=$(git rev-parse --short=6 HEAD)" >> $GITHUB_ENV
+
+      - name: Build and tag Docker image
+        run: |
+          docker build -t ghcr.io/${{ github.repository_owner }}/$REPO_NAME:latest .
+          docker tag ghcr.io/${{ github.repository_owner }}/$REPO_NAME:latest ghcr.io/${{ github.repository_owner }}/$REPO_NAME:$COMMIT_TAG
+
+      - name: Push Docker images to GHCR
+        run: |
+          docker push ghcr.io/${{ github.repository_owner }}/$REPO_NAME:latest
+          docker push ghcr.io/${{ github.repository_owner }}/$REPO_NAME:$COMMIT_TAG
+
+          
