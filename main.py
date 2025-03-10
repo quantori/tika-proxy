@@ -15,6 +15,11 @@ tika_server = tika_url()
 app = FastAPI()
 
 
+@app.get("/healthcheck")
+async def healthcheck():
+    return Response(status_code=200, content="ok", headers={ "Content-Type": "text/plain"})
+
+
 @app.put("/tika/text")
 async def tika(request: Request):
 
