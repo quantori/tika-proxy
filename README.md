@@ -1,5 +1,6 @@
 # Tika proxy
 
+This is a proxy for Apache Tika that splits large documents into pages for parallel processing. You can configure it using environment variables. Adjust the TIKA_CHUNK value for better performance.
 
 ## Setup
 
@@ -26,12 +27,12 @@ python3 main.py
 ## Docker & docker-compose
 
 ```
-docker run docker pull ghcr.io/quantori/tika-pipes:latest
+docker run docker pull ghcr.io/quantori/tika-proxy:latest
 ```
 
 ```(yaml)
 tika-proxy:
-  image: ghcr.io/quantori/tika-pipes:latest
+  image: ghcr.io/quantori/tika-proxy:latest
   environment:
     - TIKA_CHUNK=120
     - TIKA_URL=http://tika:9998
