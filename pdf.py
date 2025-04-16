@@ -35,12 +35,13 @@ async def page_requests(headers, url, file):
             pdf_writer = PdfWriter()
             pdf_writer.add_page(pdf.pages[page])
 
-            out_file_name = os.path.join(temp_dir, f"page-{page:05d}.pdf")
+            out_file_name = os.path.abspath(os.path.join(temp_dir, f"page-{page:05d}.pdf"))
 
-            with open(out_file_name, 'wb') as out:
-                pdf_writer.write(out)
+            if out_file_name.startswith(temp_dir):
+                with open(out_file_name, 'wb') as out:
+                    pdf_writer.write(out)
 
-            pdf_pages.append(out_file_name)
+                pdf_pages.append(out_file_name)
 
         pages = len(pdf_pages)
 
