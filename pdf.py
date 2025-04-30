@@ -12,11 +12,13 @@ CHUNK = int(os.environ.get("TIKA_CHUNK", "8"))
 logger = logging.getLogger("uvicorn.error")
 
 
-async def single_page(headers: dict, url: str, file, session: aiohttp.ClientSession) -> tuple[bytes, dict]:
-    async with session.put(url, data=file, headers=headers) as response:
-        headers = response.headers
-        text = await response.read()
-        return (text, headers)
+async def single_page(headers, url, file_name: str, session):
+
+    with open(file_name, "rb") as file:
+        async with session.put(url, data=file, headers=headers) as response:
+            headers = response.headers
+            text = await response.read()
+            return (text, headers)
 
 
 async def page_requests(headers, url, file):
@@ -33,8 +35,7 @@ async def page_requests(headers, url, file):
             pdf_writer = PdfWriter()
             pdf_writer.add_page(pdf.pages[page])
 
-            out_file_name = os.path.abspath(
-                os.path.join(temp_dir, f"page-{page:05d}.pdf"))
+            out_file_name = os.path.abspath(os.path.join(temp_dir, f"page-{page:05d}.pdf"))
 
             if out_file_name.startswith(temp_dir):
                 with open(out_file_name, 'wb') as out:
@@ -53,11 +54,8 @@ async def page_requests(headers, url, file):
 
                 logger.info(f"Process page: {page} of {pages}")
 
-                file_name = pdf_pages[page]
-                if file_name.startswith(temp_dir):
-                    with open(file_name, "rb") as file:
-                        tasks.append(single_page(
-                            headers, url, file, session))
+                tasks.append(single_page(
+                    headers, url, pdf_pages[page], session))
 
                 if len(tasks) < CHUNK:
                     continue
