@@ -10,7 +10,7 @@ def dotenv():
 
 
 def tika_url():
-  url = os.environ.get("TIKA_URL","http://localhost:9099")
+  url = os.environ.get("TIKA_URL","http://localhost:9998")
 
   if not url.endswith("/"):
     url = url + "/"
