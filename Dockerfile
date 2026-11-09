@@ -1,4 +1,6 @@
-FROM python:3-slim
+# 3.13: uv.lock pins pydantic-core 2.27.2, which has no wheels for 3.14 (python:3-slim
+# moved to 3.14 and the build then needs a Rust toolchain).
+FROM python:3.13-slim
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 

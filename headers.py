@@ -1,5 +1,6 @@
 
 SAVE_HEADERS = ["content-type", "accept"]
+PDF_MAGIC = b"%PDF-"
 
 def filter_headers(src: dict)-> dict:
   dst = dict()
@@ -9,18 +10,16 @@ def filter_headers(src: dict)-> dict:
 
   return dst
 
-def is_multiple_pdf(src: dict)->bool:
-
-  type = "text/plain"
-  length = 0
-
+def content_type(src: dict)->str:
+  """The media type of the request without parameters, lower-cased; "" if absent."""
   for hdr in src.keys():
+    if hdr.lower() == "content-type":
+      return src[hdr].split(";")[0].strip().lower()
 
-    match hdr.lower():
-      case "content-type":
-        type = src[hdr].lower()
-      case "content-length":
-        length = int(src[hdr].lower())
+  return ""
 
-  return type == "application/pdf"
-#and length > 2_000_000
+def is_pdf(head: bytes, src: dict)->bool:
+  """A request carries a PDF when the body starts with the PDF magic bytes, or
+  when the client says so. The content check comes first: Open WebUI (0.6.35+)
+  sends no Content-Type at all, and browsers get the type wrong."""
+  return head.startswith(PDF_MAGIC) or content_type(src) == "application/pdf"
