@@ -38,3 +38,8 @@ tika-proxy:
     - TIKA_URL=http://tika:9998
   restart: always
 ```
+
+`latest` follows the `main` branch. Releases are published from git tags: pushing a tag
+such as `v0.0.2` also publishes the image as `ghcr.io/quantori/tika-proxy:v0.0.2` and
+`ghcr.io/quantori/tika-proxy:0.0.2`. Every build is additionally tagged with the short
+commit SHA.
