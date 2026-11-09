@@ -1,33 +1,54 @@
-import asyncio
 import json
 
 
-class TikaCollect():
-    data: str
-    headers: dict
-    request: dict
+class TikaCollect:
+    """Collects per-page Tika responses and rebuilds one Tika-shaped response.
+
+    Pages are stored by index, so a page that only succeeds on retry still lands
+    in the right place. The metadata and HTTP headers of the first successful
+    page stand in for the document's. Error messages number pages from 1, like
+    a reader does."""
 
     def __init__(self):
-        self.data = ""
+        self.texts = dict()
+        self.metadata = dict()
         self.headers = dict()
-        self.request = dict()
+        self.last_error = None
 
-    async def async_collect(self, tasks: list):
+    def collect(self, indices, results) -> list:
+        """Store the good responses; return the indices of the failed pages."""
+        failed = []
 
-        responses = await asyncio.gather(*tasks)
+        for index, result in zip(indices, results):
+            if isinstance(result, BaseException):
+                self.last_error = f"page {index + 1}: {type(result).__name__}: {result}"
+                failed.append(index)
+                continue
 
-        for req in range(len(responses)):
+            body, headers, status = result
+
+            if status != 200:
+                self.last_error = f"page {index + 1}: HTTP {status} {body[:200]!r}"
+                failed.append(index)
+                continue
+
             try:
-                tika: dict = json.loads(responses[req][0])
-                self.data += tika["X-TIKA:content"]
+                tika = json.loads(body)
+            except ValueError as e:
+                self.last_error = f"page {index + 1}: invalid JSON from Tika: {e}"
+                failed.append(index)
+                continue
 
-                if len(self.headers.keys) == 0:
-                    self.headers = tika
-                    del self.headers["X-TIKA:content"]
-                    self.request = responses[req][1]
-            except:
-                pass
+            self.texts[index] = tika.get("X-TIKA:content") or ""
 
-    def get_request(self)->list:
-      self.request["X-TIKA:content"] = self.data
-      return (json.dumps(self.request), self.headers)
+            if not self.metadata:
+                self.metadata = {k: v for k, v in tika.items() if k != "X-TIKA:content"}
+                self.headers = dict(headers)
+
+        return failed
+
+    def get_request(self):
+        body = dict(self.metadata)
+        body["X-TIKA:content"] = "".join(self.texts[i] for i in sorted(self.texts))
+
+        return (json.dumps(body), self.headers, 200)
