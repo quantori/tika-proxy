@@ -6,7 +6,7 @@ This is a proxy for Apache Tika that splits PDF documents into pages for paralle
 
 - A request is treated as a PDF when its body starts with `%PDF-`, or when `Content-Type: application/pdf` is set. The content check comes first: Open WebUI (0.6.35 and later) sends no `Content-Type`, and browsers often send a wrong one.
 - A PDF is split into single pages, which are sent to Tika `TIKA_CHUNK` at a time. The texts are concatenated in page order; the metadata of the first page stands in for the document's.
-- A PDF that cannot be split (encrypted with a user password, malformed) is sent to Tika whole, as a single request. Everything that is not a PDF is also sent whole.
+- A PDF that cannot be split (encrypted with a user password, malformed, or not split within `TIKA_SPLIT_TIMEOUT` seconds) is sent to Tika whole, as a single request. Everything that is not a PDF is also sent whole.
 - A page that fails (connection error, non-200, bad JSON) is retried once after `TIKA_RETRY_DELAY` seconds, which covers a Tika worker restart. If it fails again the page is skipped and logged as an error; the text is assembled from the other pages.
 - The request fails with HTTP 502 only when not a single page could be parsed, that is when Tika is down or rejects everything.
 - If the client disconnects while a document is being processed (for example a proxy in front of this one timed out), the remaining pages are not sent to Tika.
@@ -25,6 +25,8 @@ TIKA_URL - Tika endpoint: (http://localhost:9998)
 TIKA_CHUNK - Tika parallel batch size (8)
 
 TIKA_RETRY_DELAY - Seconds to wait before retrying a failed page (3)
+
+TIKA_SPLIT_TIMEOUT - Seconds allowed for splitting a PDF into pages (30)
 
 ## Run
 

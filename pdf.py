@@ -1,6 +1,8 @@
-from PyPDF2 import PdfReader, PdfWriter
+from pypdf import PdfReader, PdfWriter
 from aiofiles import tempfile
+import io
 import os
+import sys
 import time
 import aiohttp
 import asyncio
@@ -9,6 +11,7 @@ from tika import TikaCollect
 
 CHUNK = int(os.environ.get("TIKA_CHUNK", "8"))
 RETRY_DELAY = float(os.environ.get("TIKA_RETRY_DELAY", "3"))
+SPLIT_TIMEOUT = float(os.environ.get("TIKA_SPLIT_TIMEOUT", "30"))
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -50,13 +53,36 @@ def split_pages(file, temp_dir: str) -> list:
             paths.append(path)
     except PdfSplitError:
         raise
-    except Exception as e:  # PyPDF2 raises many exception types on malformed input
+    except Exception as e:  # pypdf raises many exception types on malformed input
         raise PdfSplitError(f"{type(e).__name__}: {e}") from e
 
     if not paths:
         raise PdfSplitError("no pages")
 
     return paths
+
+
+async def split_in_child(file, temp_dir: str) -> list:
+    """Run split_pages in a child process and kill it after SPLIT_TIMEOUT seconds.
+
+    Splitting is CPU-bound Python. In a thread it holds the GIL, so one slow PDF
+    stalls every other request, and a thread cannot be stopped. Returns the paths."""
+    child = await asyncio.create_subprocess_exec(
+        sys.executable, os.path.abspath(__file__), temp_dir,
+        stdin=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+
+    try:
+        _, error = await asyncio.wait_for(child.communicate(file.getvalue()), SPLIT_TIMEOUT)
+    except asyncio.TimeoutError:
+        child.kill()
+        await child.wait()
+        raise PdfSplitError(f"split took longer than {SPLIT_TIMEOUT:g}s")
+
+    if child.returncode != 0:
+        lines = error.decode(errors="replace").strip().splitlines()
+        raise PdfSplitError(lines[-1] if lines else f"split exited with {child.returncode}")
+
+    return sorted(os.path.join(temp_dir, name) for name in os.listdir(temp_dir))
 
 
 async def single_page(headers, url, path: str, session):
@@ -85,7 +111,7 @@ async def page_requests(headers, url, file, is_disconnected=None):
     async with tempfile.TemporaryDirectory() as temp_dir:
         started = time.monotonic()
 
-        pages = await asyncio.to_thread(split_pages, file, temp_dir)
+        pages = await split_in_child(file, temp_dir)
         total = len(pages)
 
         logger.info(f"Start pdf process! pages={total} chunk={CHUNK}")
@@ -137,3 +163,11 @@ async def page_requests(headers, url, file, is_disconnected=None):
                     f"in {time.monotonic() - started:.1f}s")
 
         return data.get_request()
+
+
+if __name__ == "__main__":
+    # Child of split_in_child: the PDF comes on stdin, the pages go to argv[1].
+    try:
+        split_pages(io.BytesIO(sys.stdin.buffer.read()), sys.argv[1])
+    except PdfSplitError as e:
+        sys.exit(str(e))
