@@ -45,7 +45,7 @@ async def tika(request: Request):
         try:
             if pdf:
                 try:
-                    # PyPDF2 gets its own in-memory copy. Sharing the temp file's
+                    # pypdf gets its own in-memory copy. Sharing the temp file's
                     # descriptor with a second file object desynchronises the
                     # buffered wrapper, and closing it later fails with EINVAL.
                     body, response_headers, status = await page_requests(
